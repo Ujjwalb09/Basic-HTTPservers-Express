@@ -2,6 +2,7 @@
 
 const express = require('express')
 const app = express()
+const zod = require("zod")
 const port = 3000
 
 // Middleware to parse JSON
@@ -101,6 +102,84 @@ app.post('/conversation', (req, res) => {
     // console.log(req.body);
   res.status(202).send('Hello World!')
 })
+
+//doing authentication and input validation using middlewares.
+function authMiddleware(req, res, next){
+  //middleware for username and password authentication
+  const userName = req.headers.username;
+  const password = req.headers.password;
+
+  if(userName != "Ujjwal" || password != "pass"){
+    res.status(404).json({msg: "Username or password is incorrect"});
+    return;
+  }
+
+  next();
+}
+
+function inputValidationMiddleware(req, res, next){
+  //middleware for input validation
+  const kidneyId = req.query.kidneyId;
+
+  if(kidneyId != 1 && kidneyId != 2){
+    res.stats(404).json({msg: "wrong input"});
+    return;
+  }
+
+  next();
+}
+
+let numberOfRequest = 0;
+
+function calculateRequests(req, res, next){
+  //middleware to calculate how many requests are hitting the server
+    numberOfRequest++;
+    console.log(numberOfRequest);
+    next();
+}
+
+app.get("/healthCheckup",calculateRequests, authMiddleware, inputValidationMiddleware, (req, res)=>{
+
+  res.json({msg: "your kidney is fine!"});
+
+});
+
+
+//global catches-> to catch exceptions from inside route handlers using error handling middleware.
+app.use((err, req, res, next)=>{
+  // console.log(err);
+  res.json({msg: "Sorry somethins is up with server"})
+})
+
+
+
+//doing input validation using ZOD
+const schema = zod.array(zod.number());
+
+//{
+// email: string => email
+// password: atleast 8 letter
+// country: "IN", "US"
+//}
+
+const schema2 = zod.object({
+  email: zod.string().email(),
+  password: zod.string().min(8),
+  country: zod.literal("IN").or(zod.literal("US"))
+})
+
+app.post("/health-checkup", (req, res)=>{
+  const kidneys = req.body.kidneys;
+  const response = schema.safeParse(kidneys);
+  // const kidneyLength = kidneys.length;
+
+  if(response.success === false){
+    res.status(411).send("invalid input");
+  }else{
+  res.send(response);
+  }
+});
+
   
 app.listen(port, ()=>{
   console.log(`Running on PORT ${port}`);
